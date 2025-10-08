@@ -16,7 +16,8 @@ int Snaketail(int position)
         default: return position;
     }
 }
-int ladderClimb(int position) {
+int ladderClimb(int position)
+{
     switch (position) 
     {
         case 2: return 38;
@@ -33,3 +34,4 @@ int ladderClimb(int position) {
         default: return position;
     }
 }
+
