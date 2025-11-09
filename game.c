@@ -1,10 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include "board.h"
+#include "scoreboard.h"  
 
-static int positions[2] = {0, 0};
-static const char* players[2] = {"Player 1", "Player 2"};
+static int* positions;
+static char** players;
+static int numPlayers;
 
 int rollDice() {
     return rand() % 6 + 1;
@@ -14,12 +17,12 @@ int playerMoves(int player, int roll) {
     int pos = positions[player] + roll;
     if (pos > MAX_POSITION) return positions[player];
 
-    int ladder = ladderClimb(pos);
+    int ladder = checkLadder(pos);
     if (ladder != pos) {
         printf(" Ladder! Climbed up from %d to %d\n", pos, ladder);
         pos = ladder;
     } else {
-        int snake = Snaketail(pos);
+        int snake = checkSnake(pos);
         if (snake != pos) {
             printf(" Snake! Slid down from %d to %d\n", pos, snake);
             pos = snake;
@@ -30,35 +33,49 @@ int playerMoves(int player, int roll) {
     return pos;
 }
 
-void boardgame(int p1, int p2) {
+void boardgame() {
     printf(" Game Board:\n");
     for (int row = 9; row >= 0; row--) {
         for (int col = 0; col < 10; col++) {
             int pos = (row % 2 == 0) ? row * 10 + col + 1 : row * 10 + (9 - col) + 1;
-
-            if (pos == p1 && pos == p2){
-                printf("[A&B%2d]", pos);
+            char token[10] = "";
+            for (int i = 0; i < numPlayers; i++) {
+                if (positions[i] == pos) {
+                    char label = 'A' + i;
+                    int len = strlen(token);
+                    token[len] = label;
+                    token[len + 1] = '\0';
+                }
             }
-            else if (pos == p1)
-            {
-                printf("[A%3d]", pos);
-            }
-            else if (pos == p2){
-                printf("[B%3d]", pos);
-            }
-            else
-            {
+            if (strlen(token) > 0) {
+                printf("[%s%3d]", token, pos);
+            } else {
                 printf("[%5d]", pos);
             }
         }
         printf("\n");
     }
-    printf("Token at: Player 1 -> %d, Player 2 -> %d\n\n", p1, p2);
+    printf("Token positions:\n");
+    for (int i = 0; i < numPlayers; i++) {
+        printf(" Player %c -> %d\n", 'A' + i, positions[i]);
+    }
+    printf("\n");
 }
 
 void gameplay() {
     srand(time(NULL));
-    int turn = 0;
+    printf("Enter number of players: ");
+    scanf("%d", &numPlayers);
+    getchar(); 
+
+    positions = (int*)calloc(numPlayers, sizeof(int));
+    players = (char**)malloc(numPlayers * sizeof(char*));
+    for (int i = 0; i < numPlayers; i++) {
+        players[i] = (char*)malloc(20);
+        sprintf(players[i], "Player %d", i + 1);
+    }
+
+    initScoreboard(numPlayers);  
 
     printf(" Starting Snake and Ladder Game!\n\n");
     printf(" Snake and Ladder Board Setup:\nSnakes:\n");
@@ -71,24 +88,45 @@ void gameplay() {
     printf("  Base at 36 -> Top at 44\n  Base at 51 -> Top at 67\n  Base at 71 -> Top at 91\n");
     printf("  Base at 78 -> Top at 98\n  Base at 87 -> Top at 94\n\n");
 
+    int turn = 0;
     while (1) {
         printf("%s's turn. Press Enter to roll the dice...\n", players[turn]);
         getchar();
+
+        if (positions[turn] == 0) {
+            startTimer(turn);  
+        }
 
         int roll = rollDice();
         printf(" You rolled: %d\n", roll);
         printf(" Scoreboard:\n%s rolled:  %d\n", players[turn], roll);
 
+        recordMove(turn);  
+
         int newpos = playerMoves(turn, roll);
         printf("%s moved to: %d\n\n", players[turn], newpos);
 
-         boardgame(positions[0], positions[1]);
+        boardgame();
 
         if (newpos == MAX_POSITION) {
+            stopTimer(turn);  
             printf(" %s wins the game!\n", players[turn]);
+
+            declareMoveWinner(turn);
+            declareTimeWinner(turn);
+
+            showMoveScoreboard();
+            showTimeScoreboard();
             break;
         }
 
-        turn = 1-turn;
+        turn = (turn + 1) % numPlayers;
     }
+
+    for (int i = 0; i < numPlayers; i++) {
+        free(players[i]);
+    }
+    free(players);
+    free(positions);
+    freeScoreboard();  
 }
